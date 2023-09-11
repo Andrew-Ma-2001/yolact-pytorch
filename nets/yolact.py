@@ -6,11 +6,6 @@ from nets.resnet import ResNet
 # from resnet import ResNet
 
 
-
-import sys
-sys.path.append('.')
-
-
 class FPN(nn.Module):
     def __init__(self, in_channels):
         super().__init__()
