@@ -2,10 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# TODO 把 resnet 引用改成 nets.resnet
-
-# from nets.resnet import ResNet
-from resnet import ResNet
+from nets.resnet import ResNet
+# from resnet import ResNet
 
 
 
@@ -19,11 +17,11 @@ class FPN(nn.Module):
         self.in_channels = in_channels
 
         #----------------------------------#
-        #   C3、C4、C5通道数均调整成256  # TODO 256 太大了，改成 128 
+        #   C3、C4、C5通道数均调整成128
         #----------------------------------#
         self.lat_layers     = nn.ModuleList(
             [
-                nn.Conv2d(x, 256, kernel_size=1) for x in self.in_channels
+                nn.Conv2d(x, 128, kernel_size=1) for x in self.in_channels
             ]
         )
 
@@ -32,7 +30,7 @@ class FPN(nn.Module):
         #----------------------------------#
         self.pred_layers    = nn.ModuleList(
             [
-                nn.Sequential(nn.Conv2d(256, 256, kernel_size=3, padding=1), nn.ReLU(inplace=True)) for _ in self.in_channels
+                nn.Sequential(nn.Conv2d(128, 128, kernel_size=3, padding=1), nn.ReLU(inplace=True)) for _ in self.in_channels
             ]
         )
 
@@ -42,11 +40,11 @@ class FPN(nn.Module):
         self.downsample_layers = nn.ModuleList(
             [
                 nn.Sequential(
-                    nn.Conv2d(256, 256, kernel_size=3, padding=1, stride=2),
+                    nn.Conv2d(128, 128, kernel_size=3, padding=1, stride=2),
                     nn.ReLU(inplace=True)
                 ),
                 nn.Sequential(
-                    nn.Conv2d(256, 256, kernel_size=3, padding=1, stride=2),
+                    nn.Conv2d(128, 128, kernel_size=3, padding=1, stride=2),
                     nn.ReLU(inplace=True)
                 )
             ]
@@ -76,21 +74,20 @@ class ProtoNet(nn.Module):
     def __init__(self, coef_dim):
         super().__init__()
         self.proto1 = nn.Sequential(
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True)
         )
         self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
         self.proto2 = nn.Sequential(
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, coef_dim, kernel_size=1, stride=1),
+            nn.Conv2d(128, coef_dim, kernel_size=1, stride=1),
             nn.ReLU(inplace=True)
         )
-
     def forward(self, x):
         x = self.proto1(x)
         x = self.upsample(x)
@@ -105,15 +102,15 @@ class PredictionModule(nn.Module):
         self.coef_dim       = coef_dim
 
         self.upfeature = nn.Sequential(
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),
             nn.ReLU(inplace=True)
         )
 
-        self.bbox_layer = nn.Conv2d(256, len(aspect_ratios) * 4, kernel_size=3, padding=1)
-        self.conf_layer = nn.Conv2d(256, len(aspect_ratios) * self.num_classes, kernel_size=3, padding=1)
+        self.bbox_layer = nn.Conv2d(128, len(aspect_ratios) * 4, kernel_size=3, padding=1)
+        self.conf_layer = nn.Conv2d(128, len(aspect_ratios) * self.num_classes, kernel_size=3, padding=1)
         self.coef_layer = nn.Sequential(
-            nn.Conv2d(256, len(aspect_ratios) * self.coef_dim, kernel_size=3, padding=1),
-            nn.Tanh() # TODO 这里把 Tanh 换成 sigmoid, softmax
+            nn.Conv2d(128, len(aspect_ratios) * self.coef_dim, kernel_size=3, padding=1),
+            nn.Sigmoid() # TODO 这里也可以是 Softmax 试试
         )
 
     def forward(self, x):
@@ -138,17 +135,17 @@ class Yolact(nn.Module):
             self.backbone.load_state_dict(torch.load("model_data/resnet50_backbone_weights.pth"))
 
         #----------------------------#
-        #   获得的P3为68, 68, 256
-        #   获得的P4为34, 34, 256
-        #   获得的P5为17, 17, 256
-        #   获得的P6为9, 9, 256
-        #   获得的P7为5, 5, 256
+        #   获得的P3为68, 68, 128
+        #   获得的P4为34, 34, 128
+        #   获得的P5为17, 17, 128
+        #   获得的P6为9, 9, 128
+        #   获得的P7为5, 5, 128
         #----------------------------#
         self.fpn                    = FPN([512, 1024, 2048])
         
         #--------------------------------#
         #   对P3进行上采样
-        #   256, 68, 68 -> 32, 136, 136
+        #   128, 68, 68 -> 32, 136, 136
         #--------------------------------#
         self.proto_net              = ProtoNet(coef_dim=coef_dim)
         #--------------------------------#
@@ -156,7 +153,7 @@ class Yolact(nn.Module):
         #   对应的预测结果
         #--------------------------------#
         self.prediction_layers      = PredictionModule(num_classes, coef_dim=coef_dim)
-        self.semantic_seg_conv      = nn.Conv2d(256, num_classes - 1, kernel_size=1)
+        self.semantic_seg_conv      = nn.Conv2d(128, num_classes - 1, kernel_size=1)
 
         self.train_mode             = train_mode
 
@@ -168,16 +165,16 @@ class Yolact(nn.Module):
         '''
         features = self.backbone(x)
         '''
-        构建特征金字塔，获得五个有效特征层 (n, 256, 68, 68) P3
-                                          (n, 256, 34, 34) P4
-                                          (n, 256, 17, 17) P5
-                                          (n, 256, 9, 9)   P6
-                                          (n, 256, 5, 5)   P7
+        构建特征金字塔，获得五个有效特征层 (n, 128, 68, 68) P3
+                                          (n, 128, 34, 34) P4
+                                          (n, 128, 17, 17) P5
+                                          (n, 128, 9, 9)   P6
+                                          (n, 128, 5, 5)   P7
         '''
         features = self.fpn.forward(features)
         #---------------------------------------------------#
         #   对P3进行上采样
-        #   256, 68, 68 -> 32, 136, 136 -> 136, 136, 32
+        #   128, 68, 68 -> 32, 136, 136 -> 136, 136, 32
         #---------------------------------------------------#
         pred_proto = self.proto_net(features[0])  
         pred_proto = pred_proto.permute(0, 2, 3, 1).contiguous()
@@ -200,7 +197,7 @@ class Yolact(nn.Module):
 
         if self.train_mode:
             #--------------------------------------------#
-            #   256, 68, 68 -> num_classes - 1, 68, 68
+            #   128, 68, 68 -> num_classes - 1, 68, 68
             #--------------------------------------------#
             pred_segs   = self.semantic_seg_conv(features[0])
             return pred_boxes, pred_classes, pred_masks, pred_proto, pred_segs
@@ -210,6 +207,71 @@ class Yolact(nn.Module):
 
 
 if __name__ == "__main__":
-    from torchsummary import summary
-    model = Yolact(num_classes=81, pretrained=True)
-    summary(model, input_size=(3, 544, 544), batch_size=2)
+    # 一步一步测试：
+    # FPN 之前的输入为
+    #   获得的C3为68, 68, 512
+    #   获得的C4为34, 34, 1024
+    #   获得的C5为17, 17, 2048
+
+    # 构建一个 numpy 数组，测试一下 [C3, C4, C5] 的输入， 假如 batch_size = 2
+    import numpy as np
+    C3 = np.random.randint(0, 255, (2, 512, 68, 68)).astype(np.uint8)
+    C4 = np.random.randint(0, 255, (2, 1024, 34, 34)).astype(np.uint8)
+    C5 = np.random.randint(0, 255, (2, 2048, 17, 17)).astype(np.uint8)
+
+    C3 = torch.from_numpy(C3).float()
+    C4 = torch.from_numpy(C4).float()
+    C5 = torch.from_numpy(C5).float()
+
+    # FPN 的构建就为 [512, 1024, 2048]
+
+    model = FPN([512, 1024, 2048])
+    P3, P4, P5, P6, P7 = model([C3, C4, C5])
+
+    # 打印出来看看
+    print(P3.shape, "P3")
+    print(P4.shape, "P4")
+    print(P5.shape, "P5")
+    print(P6.shape, "P6")
+    print(P7.shape, "P7")
+
+    # 修改通道数之后，输出为
+    # (n, 128, 68, 68) P3
+    # (n, 128, 34, 34) P4
+    # (n, 128, 17, 17) P5
+    # (n, 128, 9, 9)   P6
+    # (n, 128, 5, 5)   P7
+
+    model = ProtoNet(coef_dim=32)
+    pred_proto = model(P3)
+    pred_proto = pred_proto.permute(0, 2, 3, 1).contiguous()
+    print(pred_proto.shape, "pred_proto")
+
+    #   对P3进行上采样
+    #   128, 68, 68 -> 16, 136, 136 -> 【136, 136, 32】 32 为 coef_dim
+
+    model = PredictionModule(num_classes=81, coef_dim=32)
+    pred_box, pred_class, pred_coef = [], [], []
+    for f_map in [P3, P4, P5, P6, P7]:
+        box_p, class_p, coef_p = model(f_map)
+        # Print the output shape and the feature name
+        print(f_map.shape, "f_map")
+        print(box_p.shape, "box_p")
+        print(class_p.shape, "class_p")
+        print(coef_p.shape, "coef_p")
+        pred_box.append(box_p)
+        pred_class.append(class_p)
+        pred_coef.append(coef_p)
+
+    pred_box    = torch.cat(pred_box, dim=1)
+    pred_class  = torch.cat(pred_class, dim=1)
+    pred_coef   = torch.cat(pred_coef, dim=1)
+
+    print(pred_box.shape, "pred_box")
+    print(pred_class.shape, "pred_class")
+    print(pred_coef.shape, "pred_coef")
+
+    pred_segs = Yolact(num_classes=81, pretrained=True).semantic_seg_conv(P3)
+    print(pred_segs.shape, "pred_segs")
+
+    # Resnet50 模型修改完成
