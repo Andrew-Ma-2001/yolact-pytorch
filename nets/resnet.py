@@ -120,15 +120,15 @@ if __name__ == "__main__":
     model.load_state_dict(state_dict, strict=False)
     
     # Save the two model state dict size and name to two txt files
-    with open('model_state_dict.txt', 'w') as f:
-        print("Model's state_dict:", file=f)
-        for param_tensor in model.state_dict():
-            print(param_tensor, "\t", model.state_dict()[param_tensor].size(), file=f)
+    # with open('model_state_dict.txt', 'w') as f:
+    #     print("Model's state_dict:", file=f)
+    #     for param_tensor in model.state_dict():
+    #         print(param_tensor, "\t", model.state_dict()[param_tensor].size(), file=f)
     
-    with open('pretrained_state_dict.txt', 'w') as f:
-        print("Pretrained model's state_dict:", file=f)
-        for param_tensor in pretrained_weights:
-            print(param_tensor, "\t", pretrained_weights[param_tensor].size(), file=f)
+    # with open('pretrained_state_dict.txt', 'w') as f:
+    #     print("Pretrained model's state_dict:", file=f)
+    #     for param_tensor in pretrained_weights:
+    #         print(param_tensor, "\t", pretrained_weights[param_tensor].size(), file=f)
 
     # Use torch summary to print the model summary
     from torchsummary import summary

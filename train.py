@@ -23,6 +23,9 @@ from utils.utils import (get_classes, get_coco_label_map, seed_everything,
                          show_config, worker_init_fn)
 from utils.utils_fit import fit_one_epoch
 
+import yaml
+import argparse
+
 warnings.filterwarnings("ignore")
 
 if __name__ == "__main__":
@@ -30,12 +33,12 @@ if __name__ == "__main__":
     #   是否使用Cuda
     #   没有GPU可以设置成False
     #-------------------------------#
-    Cuda            = True
+    # Cuda            = True
     #----------------------------------------------#
     #   Seed    用于固定随机种子
     #           使得每次独立训练都可以获得一样的结果
     #----------------------------------------------#
-    seed            = 11
+    # seed            = 11
     #---------------------------------------------------------------------#
     #   distributed     用于指定是否使用单机多卡分布式运行
     #                   终端指令仅支持Ubuntu。CUDA_VISIBLE_DEVICES用于在Ubuntu下指定显卡。
@@ -47,21 +50,21 @@ if __name__ == "__main__":
     #       设置            distributed = True
     #       在终端中输入    CUDA_VISIBLE_DEVICES=0,2 python -m torch.distributed.launch --nproc_per_node=2 train.py
     #---------------------------------------------------------------------#
-    distributed     = True
+    # distributed     = True
     #---------------------------------------------------------------------#
     #   sync_bn     是否使用sync_bn，DDP模式多卡可用
     #---------------------------------------------------------------------#
-    sync_bn         = True
+    # sync_bn         = True
     #---------------------------------------------------------------------#
     #   fp16        是否使用混合精度训练
     #               可减少约一半的显存、需要pytorch1.7.1以上
     #---------------------------------------------------------------------#
-    fp16            = False
+    # fp16            = False
     #---------------------------------------------------------------------#
     #   classes_path    指向model_data下的txt，与自己训练的数据集相关 
     #                   训练前一定要修改classes_path，使其对应自己的数据集
     #---------------------------------------------------------------------#
-    classes_path    = 'model_data/coco_classes.txt'   
+    # classes_path    = 'model_data/person_classes.txt'   
     #----------------------------------------------------------------------------------------------------------------------------#
     #   权值文件的下载请看README，可以通过网盘下载。模型的 预训练权重 对不同数据集是通用的，因为特征是通用的。
     #   模型的 预训练权重 比较重要的部分是 主干特征提取网络的权值部分，用于进行特征提取。
@@ -80,22 +83,28 @@ if __name__ == "__main__":
     #   如果一定要从0开始，可以了解imagenet数据集，首先训练分类模型，获得网络的主干部分权值，分类模型的 主干部分 和该模型通用，基于此进行训练。
     #----------------------------------------------------------------------------------------------------------------------------#
     # model_path      = "/home/mayanze/PycharmProjects/yolact-pytorch-main/yolact_weights_coco.pth"
-    model_path = ''
+    # model_path = ''
+    #------------------------------------------------------#
+    #   是否使用Resnet50作为主干特征提取网络的特征层
+    #   为True时，model_path会被修改为model_data下的resnet50_backbone_weights.pth
+    #   为False时，model_path会被修改为model_data下的resnet18_backbone_weights.pth
+    #------------------------------------------------------#
+    # use_ResNet50    = False
     #------------------------------------------------------#
     #   input_shape     输入的shape大小
     #------------------------------------------------------#
-    input_shape     = [544, 544]
+    # input_shape     = [544, 544]
     #----------------------------------------------------------------------------------------------------------------------------#
     #   pretrained      是否使用主干网络的预训练权重，此处使用的是主干的权重，因此是在模型构建的时候进行加载的。
     #                   如果设置了model_path，则主干的权值无需加载，pretrained的值无意义。
     #                   如果不设置model_path，pretrained = True，此时仅加载主干开始训练。
     #                   如果不设置model_path，pretrained = False，Freeze_Train = Fasle，此时从0开始训练，且没有冻结主干的过程。
     #----------------------------------------------------------------------------------------------------------------------------#
-    pretrained      = True
+    # pretrained      = True
     #------------------------------------------------------#
     #   获取先验框大小
     #------------------------------------------------------#
-    anchors_size    = [24, 48, 96, 192, 384]
+    # anchors_size    = [24, 48, 96, 192, 384]
 
     #----------------------------------------------------------------------------------------------------------------------------#
     #   训练分为两个阶段，分别是冻结阶段和解冻阶段。设置冻结阶段是为了满足机器性能不足的同学的训练需求。
@@ -138,9 +147,9 @@ if __name__ == "__main__":
     #   Freeze_batch_size   模型冻结训练的batch_size
     #                       (当Freeze_Train=False时失效)
     #------------------------------------------------------------------#
-    Init_Epoch          = 0
-    Freeze_Epoch        = 50
-    Freeze_batch_size   = 16
+    # Init_Epoch          = 0
+    # Freeze_Epoch        = 50
+    # Freeze_batch_size   = 16
     #------------------------------------------------------------------#
     #   解冻阶段训练参数
     #   此时模型的主干不被冻结了，特征提取网络会发生改变
@@ -150,14 +159,14 @@ if __name__ == "__main__":
     #                           Adam可以使用相对较小的UnFreeze_Epoch
     #   Unfreeze_batch_size     模型在解冻后的batch_size
     #------------------------------------------------------------------#
-    UnFreeze_Epoch      = 100
-    Unfreeze_batch_size = 16
+    # UnFreeze_Epoch      = 100
+    # Unfreeze_batch_size = 16
     #------------------------------------------------------------------#
     #   Freeze_Train    是否进行冻结训练
     #                   默认先冻结主干训练后解冻训练。
     #                   如果设置Freeze_Train=False，建议使用优化器为sgd
     #------------------------------------------------------------------#
-    Freeze_Train        = True
+    # Freeze_Train        = True
 
     #------------------------------------------------------------------#
     #   其它训练参数：学习率、优化器、学习率下降有关
@@ -168,8 +177,8 @@ if __name__ == "__main__":
     #                   当使用SGD优化器时建议设置   Init_lr=2e-3
     #   Min_lr          模型的最小学习率，默认为最大学习率的0.01
     #------------------------------------------------------------------#
-    Init_lr             = 3e-4
-    Min_lr              = Init_lr * 0.01
+    # Init_lr             = 3e-4
+    # Min_lr              = Init_lr * 0.01
     #------------------------------------------------------------------#
     #   optimizer_type  使用到的优化器种类，可选的有adam、sgd
     #                   当使用Adam优化器时建议设置  Init_lr=3e-4
@@ -178,36 +187,93 @@ if __name__ == "__main__":
     #   weight_decay    权值衰减，可防止过拟合
     #                   adam会导致weight_decay错误，使用adam时建议设置为0。
     #------------------------------------------------------------------#
-    optimizer_type      = "adam"
-    momentum            = 0.9
-    weight_decay        = 0
+    # optimizer_type      = "adam"
+    # momentum            = 0.9
+    # weight_decay        = 0
     #------------------------------------------------------------------#
     #   lr_decay_type   使用到的学习率下降方式，可选的有'step'、'cos'
     #------------------------------------------------------------------#
-    lr_decay_type       = 'cos'
+    # lr_decay_type       = 'cos'
     #------------------------------------------------------------------#
     #   save_period     多少个epoch保存一次权值
     #------------------------------------------------------------------#
-    save_period         = 10
+    # save_period         = 10
     #------------------------------------------------------------------#
     #   save_dir        权值与日志文件保存的文件夹
     #------------------------------------------------------------------#
-    save_dir            = 'logs'
+    # save_dir            = 'logs'
     #------------------------------------------------------------------#
     #   num_workers     用于设置是否使用多线程读取数据，1代表关闭多线程
     #                   开启后会加快数据读取速度，但是会占用更多内存
     #                   keras里开启多线程有些时候速度反而慢了许多
     #                   在IO为瓶颈的时候再开启多线程，即GPU运算速度远大于读取图片的速度。
     #------------------------------------------------------------------#
-    num_workers         = 16
+    # num_workers         = 16
     #----------------------------------------------------#
     #   获得图片路径和标签
     #   默认指向根目录下面的datasets/coco文件夹
     #----------------------------------------------------#
-    train_image_path        = "/home/public/datasets/coco/train2017"
-    train_annotation_path   = "/home/public/datasets/coco/annotations/instances_train2017.json"
-    val_image_path          = "/home/public/datasets/coco/val2017"
-    val_annotation_path     = "/home/public/datasets/coco/annotations/instances_val2017.json"
+    # train_image_path        = "/home/public/datasets/coco/train2017"
+    # train_annotation_path   = "/home/public/datasets/coco/annotations/instances_train2017.json"
+    # val_image_path          = "/home/public/datasets/coco/val2017"
+    # val_annotation_path     = "/home/public/datasets/coco/annotations/instances_val2017.json"
+
+    # train_image_path        = "/home/public/datasets/coco/train2017"
+    # train_annotation_path   = "model_data/instances_train2017_person.json"
+    # val_image_path          = "/home/public/datasets/coco/val2017"
+    # val_annotation_path     = "model_data/instances_val2017_person.json"
+
+    # Load in the config file
+    args = argparse.ArgumentParser(description='Yolact Training Script')
+    args.add_argument('--config', default='config/resnet18.yaml', type=str, help='The config file.')
+    args.add_argument('--local-rank', default=0, type=int, help='Local rank for distributed training')
+    args = args.parse_args()
+
+    with open(args.config, 'r') as f:
+        config = yaml.safe_load(f)
+
+    # General parameters
+    Cuda = config['general']['Cuda']
+    seed = config['general']['seed']
+    distributed = config['general']['distributed']
+    sync_bn = config['general']['sync_bn']
+    fp16 = config['general']['fp16']
+    classes_path = config['general']['classes_path']
+    model_path = config['general']['model_path']
+
+    # Model parameters
+    use_ResNet50 = config['model']['use_ResNet50']
+    input_shape = config['model']['input_shape']
+    pretrained = config['model']['pretrained']
+    anchors_size = config['model']['anchors_size']
+
+    # Training parameters
+    Init_Epoch = config['training']['Init_Epoch']
+    Freeze_Epoch = config['training']['Freeze_Epoch']
+    Freeze_batch_size = config['training']['Freeze_batch_size']
+    UnFreeze_Epoch = config['training']['UnFreeze_Epoch']
+    Unfreeze_batch_size = config['training']['Unfreeze_batch_size']
+    Freeze_Train = config['training']['Freeze_Train']
+
+    # Optimizer parameters
+    Init_lr = config['optimizer']['Init_lr']
+    Min_lr = config['optimizer']['Min_lr']
+    optimizer_type = config['optimizer']['optimizer_type']
+    momentum = config['optimizer']['momentum']
+    weight_decay = config['optimizer']['weight_decay']
+    lr_decay_type = config['optimizer']['lr_decay_type']
+
+    # Saving parameters
+    save_period = config['saving']['save_period']
+    save_dir = config['saving']['save_dir']
+
+    # Data parameters
+    num_workers = config['data']['num_workers']
+    train_image_path = config['data']['train_image_path']
+    train_annotation_path = config['data']['train_annotation_path']
+    val_image_path = config['data']['val_image_path']
+    val_annotation_path = config['data']['val_annotation_path']
+
 
     seed_everything(seed)
     #------------------------------------------------------#
@@ -237,7 +303,7 @@ if __name__ == "__main__":
     anchors     = get_anchors(input_shape, anchors_size)
     anchors     = torch.from_numpy(anchors).type(torch.FloatTensor)
     
-    model = Yolact(num_classes, pretrained = pretrained)
+    model = Yolact(num_classes, pretrained = pretrained, use_ResNet50 = use_ResNet50)
     if model_path != "":
         #------------------------------------------------------#
         #   权值文件请看README，百度网盘下载
@@ -320,7 +386,7 @@ if __name__ == "__main__":
 
     if local_rank == 0:
         show_config(
-            classes_path = classes_path, model_path = model_path, input_shape = input_shape, \
+            classes_path = classes_path, model_path = model_path, use_ResNet50 = use_ResNet50, input_shape = input_shape, \
             Init_Epoch = Init_Epoch, Freeze_Epoch = Freeze_Epoch, UnFreeze_Epoch = UnFreeze_Epoch, Freeze_batch_size = Freeze_batch_size, Unfreeze_batch_size = Unfreeze_batch_size, Freeze_Train = Freeze_Train, \
             Init_lr = Init_lr, Min_lr = Min_lr, optimizer_type = optimizer_type, momentum = momentum, lr_decay_type = lr_decay_type, \
             save_period = save_period, save_dir = save_dir, num_workers = num_workers, num_train = num_train, num_val = num_val

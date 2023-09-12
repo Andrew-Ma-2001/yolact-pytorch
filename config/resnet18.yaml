@@ -1,0 +1,36 @@
+general:
+  Cuda: True
+  seed: 11
+  distributed: True
+  sync_bn: True
+  fp16: False
+  classes_path: 'model_data/person_classes.txt'  # Train only on person
+  model_path: ''
+model:
+  use_ResNet50: False # Using Resnet 18
+  input_shape: [544, 544]
+  pretrained: True
+  anchors_size: [24, 48, 96, 192, 384]
+training:
+  Init_Epoch: 0
+  Freeze_Epoch: 50
+  Freeze_batch_size: 16
+  UnFreeze_Epoch: 100
+  Unfreeze_batch_size: 16
+  Freeze_Train: True
+optimizer:
+  Init_lr: 0.0003
+  Min_lr: 0.00003
+  optimizer_type: "adam"
+  momentum: 0.9
+  weight_decay: 0
+  lr_decay_type: 'cos'
+saving:
+  save_period: 10
+  save_dir: 'logs/resnet18'
+data:
+  num_workers: 16
+  train_image_path: "/home/public/datasets/coco/train2017"
+  train_annotation_path: "model_data/instances_train2017_person.json"
+  val_image_path: "/home/public/datasets/coco/val2017"
+  val_annotation_path: "model_data/instances_val2017_person.json"

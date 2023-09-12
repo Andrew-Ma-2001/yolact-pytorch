@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# from nets.resnet import ResNet
-from resnet import ResNet
+from nets.resnet import ResNet
+# from resnet import ResNet
 
 
 class FPN(nn.Module):
@@ -118,7 +118,7 @@ class PredictionModule(nn.Module):
         return box, conf, coef
 
 class Yolact(nn.Module):
-    def __init__(self, num_classes, coef_dim=32, pretrained=False, train_mode=True):
+    def __init__(self, num_classes, coef_dim=32, pretrained=False, train_mode=True, use_ResNet50=True):
         super().__init__()
         #----------------------------#
         #   获得的C3为68, 68, 512
@@ -127,7 +127,12 @@ class Yolact(nn.Module):
         #----------------------------#
         self.backbone               = ResNet(layers=[3, 4, 6, 3])
         if pretrained:
-            self.backbone.load_state_dict(torch.load("model_data/resnet50_backbone_weights.pth"))
+            if use_ResNet50:
+                self.backbone.load_state_dict(torch.load("model_data/resnet50_backbone_weights.pth"))
+            else:
+                # Using resnet18
+                self.backbone.load_state_dict(torch.load("model_data/resnet18_backbone_weights.pth"), strict=False)
+
 
         #----------------------------#
         #   获得的P3为68, 68, 128
