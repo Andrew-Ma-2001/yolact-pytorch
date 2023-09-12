@@ -99,3 +99,49 @@ class ResNet(nn.Module):
     def init_backbone(self, path):
         state_dict = torch.load(path)
         self.load_state_dict(state_dict, strict=True)
+
+
+
+if __name__ == "__main__":
+    import numpy as np
+    # Instantiate the ResNet with 4 layers each having 2 blocks
+    model = ResNet([2, 2, 2, 2])
+    
+    # Load the pre-trained weights from torch resnet18
+    pretrained_weights = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=True).state_dict()
+    
+    # Prepare the state_dict to load into our model
+    state_dict = {}
+    for k, v in pretrained_weights.items():
+        if 'fc' not in k:  # Exclude the fully connected layer
+            state_dict[k] = v
+    
+    # Load the weights into our model
+    model.load_state_dict(state_dict, strict=False)
+    
+    # Save the two model state dict size and name to two txt files
+    with open('model_state_dict.txt', 'w') as f:
+        print("Model's state_dict:", file=f)
+        for param_tensor in model.state_dict():
+            print(param_tensor, "\t", model.state_dict()[param_tensor].size(), file=f)
+    
+    with open('pretrained_state_dict.txt', 'w') as f:
+        print("Pretrained model's state_dict:", file=f)
+        for param_tensor in pretrained_weights:
+            print(param_tensor, "\t", pretrained_weights[param_tensor].size(), file=f)
+
+    # Use torch summary to print the model summary
+    from torchsummary import summary
+    summary(model, (3, 544, 544), device='cpu')
+
+    # Test for an image
+    image = np.random.rand(1, 3, 544, 544)
+    image = torch.from_numpy(image).float()
+    output = model(image)
+    
+    # Print the output size
+    for item in output:
+        print(item.shape)
+
+    # Save the model name as : model_data/resnet18_backbone_weights.pth
+    torch.save(model.state_dict(), 'model_data/resnet18_backbone_weights.pth')

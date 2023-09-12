@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from nets.resnet import ResNet
-# from resnet import ResNet
+# from nets.resnet import ResNet
+from resnet import ResNet
 
 
 class FPN(nn.Module):
@@ -201,7 +201,7 @@ class Yolact(nn.Module):
             return pred_boxes, pred_classes, pred_masks, pred_proto
 
 
-if __name__ == "__main__":
+def test_input_output():
     # 一步一步测试：
     # FPN 之前的输入为
     #   获得的C3为68, 68, 512
@@ -270,3 +270,22 @@ if __name__ == "__main__":
     print(pred_segs.shape, "pred_segs")
 
     # Resnet50 模型修改完成
+
+
+if __name__ == "__main__":
+    # 现在写 resnet18 的部分
+    model = ResNet([2,2,2,2])
+    # Print Output Size if image size is 544,544,3
+    input = torch.randn(1, 3, 544, 544)
+    [P3, P4, P5] = model(input)
+    print("Output size of P3: ", P3.size())
+    print("Output size of P4: ", P4.size())
+    print("Output size of P5: ", P5.size())
+    
+    # Output size of P3:  torch.Size([1, 512, 68, 68])
+    # Output size of P4:  torch.Size([1, 1024, 34, 34])
+    # Output size of P5:  torch.Size([1, 2048, 17, 17])
+
+    # 现在的问题是怎么把原本的 resnet18 的权重导入
+
+
