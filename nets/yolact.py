@@ -6,6 +6,11 @@ from nets.resnet import ResNet
 # from resnet import ResNet
 
 
+# 几个事情
+# 1. Channel 数量对一下
+# 2. Prediction Layer 拆分对一下
+
+
 class FPN(nn.Module):
     def __init__(self, in_channels):
         super().__init__()
@@ -125,14 +130,15 @@ class Yolact(nn.Module):
         #   获得的C4为34, 34, 1024
         #   获得的C5为17, 17, 2048
         #----------------------------#
-        self.backbone               = ResNet(layers=[3, 4, 6, 3])
+        
         if pretrained:
             if use_ResNet50:
+                self.backbone               = ResNet(layers=[3, 4, 6, 3])
                 self.backbone.load_state_dict(torch.load("model_data/resnet50_backbone_weights.pth"))
             else:
                 # Using resnet18
+                self.backbone               = ResNet(layers=[2, 2, 2, 2])
                 self.backbone.load_state_dict(torch.load("model_data/resnet18_backbone_weights.pth"), strict=False)
-
 
         #----------------------------#
         #   获得的P3为68, 68, 128
@@ -152,7 +158,12 @@ class Yolact(nn.Module):
         #   用于获取每一个有效特征层
         #   对应的预测结果
         #--------------------------------#
-        self.prediction_layers      = PredictionModule(num_classes, coef_dim=coef_dim)
+        self.prediction_layer_P3 = PredictionModule(num_classes, coef_dim=coef_dim)
+        self.prediction_layer_P4 = PredictionModule(num_classes, coef_dim=coef_dim)
+        self.prediction_layer_P5 = PredictionModule(num_classes, coef_dim=coef_dim)
+        self.prediction_layer_P6 = PredictionModule(num_classes, coef_dim=coef_dim)
+        self.prediction_layer_P7 = PredictionModule(num_classes, coef_dim=coef_dim)
+
         self.semantic_seg_conv      = nn.Conv2d(128, num_classes - 1, kernel_size=1)
 
         self.train_mode             = train_mode
@@ -186,14 +197,16 @@ class Yolact(nn.Module):
         #   pred_masks      18525, 32
         #--------------------------------------------#
         pred_boxes, pred_classes, pred_masks = [], [], []
-        for f_map in features:
-            box_p, class_p, mask_p = self.prediction_layers(f_map)
-            pred_boxes.append(box_p)
-            pred_classes.append(class_p)
-            pred_masks.append(mask_p)
-        pred_boxes      = torch.cat(pred_boxes, dim=1)
-        pred_classes    = torch.cat(pred_classes, dim=1)
-        pred_masks      = torch.cat(pred_masks, dim=1)
+        box_p3, class_p3, mask_p3 = self.prediction_layer_P3(features[0])
+        box_p4, class_p4, mask_p4 = self.prediction_layer_P4(features[1])
+        box_p5, class_p5, mask_p5 = self.prediction_layer_P5(features[2])
+        box_p6, class_p6, mask_p6 = self.prediction_layer_P6(features[3])
+        box_p7, class_p7, mask_p7 = self.prediction_layer_P7(features[4])
+
+        pred_boxes = torch.cat([box_p3, box_p4, box_p5, box_p6, box_p7], dim=1)
+        pred_classes = torch.cat([class_p3, class_p4, class_p5, class_p6, class_p7], dim=1)
+        pred_masks = torch.cat([mask_p3, mask_p4, mask_p5, mask_p6, mask_p7], dim=1)
+
 
         if self.train_mode:
             #--------------------------------------------#

@@ -14,7 +14,7 @@ from utils.utils import (cvtColor, get_classes, preprocess_input, resize_image,
                          show_config)
 from utils.utils_bbox import BBoxUtility
 
-
+from collections import OrderedDict
 #--------------------------------------------#
 #   使用自己训练好的模型预测需要修改2个参数
 #   model_path和classes_path都需要修改！
@@ -109,7 +109,8 @@ class YOLACT(object):
         self.bbox_util = BBoxUtility()
         self.generate()
         
-        show_config(**self._defaults)
+        # show_config(**self.__dict__)
+        # TODO Add in a more clear show_config parameters
 
     #---------------------------------------------------#
     #   获得所有的分类
@@ -117,7 +118,27 @@ class YOLACT(object):
     def generate(self, onnx=False):
         self.net    = Yolact(self.num_classes, train_mode=False)
         device      = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.net.load_state_dict(torch.load(self.model_path, map_location=device))
+        # TODO Retrain the model, now load in the state dict by assigning the prediction layers weight to all prediction layers
+
+        # Load the state dict of the saved model
+        state_dict = torch.load(self.model_path, map_location=device)
+
+        # Create a new state dict
+        new_state_dict = OrderedDict()
+
+        # Modify the keys in the state dict
+        for k, v in state_dict.items():
+            if 'prediction_layers' in k:
+                for i in range(3, 8):
+                    new_k = k.replace('prediction_layers', f'prediction_layer_P{i}')
+                    new_state_dict[new_k] = v
+            else:
+                new_state_dict[k] = v
+
+        # Load the new state dict into the model
+        self.net.load_state_dict(new_state_dict)
+        # self.net.load_state_dict(torch.load(self.model_path, map_location=device))
+
         self.net    = self.net.eval()
         print('{} model, and classes loaded.'.format(self.model_path))
         

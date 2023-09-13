@@ -14,9 +14,9 @@ model:
 training:
   Init_Epoch: 0
   Freeze_Epoch: 50
-  Freeze_batch_size: 16
+  Freeze_batch_size: 64
   UnFreeze_Epoch: 100
-  Unfreeze_batch_size: 16
+  Unfreeze_batch_size: 64
   Freeze_Train: True
 optimizer:
   Init_lr: 0.0003
