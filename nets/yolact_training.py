@@ -173,17 +173,31 @@ class Multi_Loss(nn.Module):
         pos_pred_boxes  = pred_boxes[positive_bool, :]
         pos_offsets     = true_offsets[positive_bool, :]
         
-        losses['B']     = self.bbox_loss(pos_pred_boxes, pos_offsets) * 1.5
-        losses['C']     = self.ohem_conf_loss(pred_classes, true_classes, positive_bool)
-        losses['M']     = self.lincomb_mask_loss(positive_bool, pred_masks, pred_proto, mask_gt, anchor_max_box, anchor_max_index) * 6.125
-        losses['S']     = self.semantic_segmentation_loss(predictions[4], mask_gt, class_gt)
+        # Original Loss Weight
+        # losses['B']     = self.bbox_loss(pos_pred_boxes, pos_offsets) * 1.5
+        # losses['C']     = self.ohem_conf_loss(pred_classes, true_classes, positive_bool)
+        # losses['M']     = self.lincomb_mask_loss(positive_bool, pred_masks, pred_proto, mask_gt, anchor_max_box, anchor_max_index) * 6.125
+        # losses['S']     = self.semantic_segmentation_loss(predictions[4], mask_gt, class_gt)
+
+        # Current Loss Weight
+        losses['B'] = self.bbox_loss(pos_pred_boxes, pos_offsets) * 1.5
+        losses['C'] = self.ohem_conf_loss(pred_classes, true_classes, positive_bool)
+        losses['M'] = self.lincomb_mask_loss(positive_bool, pred_masks, pred_proto, mask_gt, anchor_max_box, anchor_max_index) * 12  # increased weight
+        losses['S'] = self.semantic_segmentation_loss(predictions[4], mask_gt, class_gt) *2 # increased weight
+
 
         total_num_pos   = num_pos.data.sum().float()
         for aa in losses:
-            if aa != 'S':
-                losses[aa] /= (total_num_pos + eps)
-            else:
-                losses[aa] /= (batch_size + eps)
+            try:
+                if aa != 'S':
+                    losses[aa] /= (total_num_pos + eps)
+                else:
+                    losses[aa] /= (batch_size + eps)
+            except ZeroDivisionError:
+                print(f"Loss {aa} is too small, setting it to 0 to prevent division by zero.")
+                losses[aa] = 0
+            except Exception as e:
+                print(f"Unexpected error with loss {aa}: {e}")
         return losses
 
     #------------------------------------------------------------#

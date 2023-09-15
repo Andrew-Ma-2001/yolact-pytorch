@@ -8,7 +8,11 @@ import torch
 import torch.nn as nn
 from PIL import Image
 
+# from nets.old_yolact import Yolact
+
 from nets.yolact import Yolact
+
+
 from utils.anchors import get_anchors
 from utils.utils import (cvtColor, get_classes, preprocess_input, resize_image,
                          show_config)
@@ -29,8 +33,8 @@ class YOLACT(object):
         #   验证集损失较低不代表mAP较高，仅代表该权值在验证集上泛化性能较好。
         #   如果出现shape不匹配，同时要注意训练时的model_path和classes_path参数的修改
         #--------------------------------------------------------------------------#
-        "model_path"        : 'yolact_weights_coco.pth',
-        "classes_path"      : 'model_data/coco_classes.txt',
+        "model_path"        : 'new_state_dict.pth',
+        "classes_path"      : 'model_data/person_classes.txt',
         #---------------------------------------------------------------------#
         #   输入图片的大小
         #---------------------------------------------------------------------#
@@ -109,8 +113,8 @@ class YOLACT(object):
         self.bbox_util = BBoxUtility()
         self.generate()
         
-        # show_config(**self.__dict__)
-        # TODO Add in a more clear show_config parameters
+        show_config(**self.__dict__)
+        # TODO Add in a more clear show_config function
 
     #---------------------------------------------------#
     #   获得所有的分类
@@ -118,26 +122,7 @@ class YOLACT(object):
     def generate(self, onnx=False):
         self.net    = Yolact(self.num_classes, train_mode=False)
         device      = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        # TODO Retrain the model, now load in the state dict by assigning the prediction layers weight to all prediction layers
-
-        # Load the state dict of the saved model
-        state_dict = torch.load(self.model_path, map_location=device)
-
-        # Create a new state dict
-        new_state_dict = OrderedDict()
-
-        # Modify the keys in the state dict
-        for k, v in state_dict.items():
-            if 'prediction_layers' in k:
-                for i in range(3, 8):
-                    new_k = k.replace('prediction_layers', f'prediction_layer_P{i}')
-                    new_state_dict[new_k] = v
-            else:
-                new_state_dict[k] = v
-
-        # Load the new state dict into the model
-        self.net.load_state_dict(new_state_dict)
-        # self.net.load_state_dict(torch.load(self.model_path, map_location=device))
+        self.net.load_state_dict(torch.load(self.model_path, map_location=device))
 
         self.net    = self.net.eval()
         print('{} model, and classes loaded.'.format(self.model_path))
@@ -337,3 +322,90 @@ class YOLACT(object):
             box_thre, class_thre, class_ids, masks_arg, masks_sigmoid = [x.cpu().numpy() for x in results]
 
         return box_thre, class_thre, class_ids, masks_arg, masks_sigmoid
+
+    def get_single_image(self, img):
+        """
+        This function takes a PIL image as input, performs object detection on it,
+        and returns the detected objects, their bounding boxes, classes, and masks.
+
+        Args:
+            img (PIL.Image): The input image.
+
+        Returns:
+            dict: A dictionary containing the following fields:
+                'boxes': A list of bounding boxes of detected objects. Each bounding box is represented by a list of four integers.
+                'classes': A list of class IDs of detected objects.
+                'scores': A list of confidence scores of detected objects.
+                'masks': A list of binary masks of detected objects. Each mask is a 2D numpy array.
+        """
+        image_shape     = np.array(np.shape(img)[0:2])
+        #---------------------------------------------------------#
+        #   在这里将图像转换成RGB图像，防止灰度图在预测时报错。
+        #   代码仅仅支持RGB图像的预测，所有其它类型的图像都会转化成RGB
+        #---------------------------------------------------------#
+        image           = cvtColor(img)
+        image_origin    = np.array(image, np.uint8)
+        #---------------------------------------------------------#
+        #   直接resize到指定大小
+        #---------------------------------------------------------#
+        image_data      = resize_image(image, (self.input_shape[1], self.input_shape[0]))
+        #---------------------------------------------------------#
+        #   添加上batch_size维度，图片预处理，归一化。
+        #---------------------------------------------------------#
+        image_data      = np.expand_dims(np.transpose(preprocess_input(np.array(image_data, np.float32)), (2, 0, 1)), 0)
+
+        with torch.no_grad():
+            image_data = torch.from_numpy(image_data).type(torch.FloatTensor)
+            if self.cuda:
+                image_data = image_data.cuda()
+            #---------------------------------------------------------#
+            #   将图像输入网络当中进行预测！
+            #---------------------------------------------------------#
+            outputs = self.net(image_data)
+            #---------------------------------------------------------#
+            #   解码并进行非极大抑制
+            #---------------------------------------------------------#
+            results = self.bbox_util.decode_nms(outputs, self.anchors, self.confidence, self.nms_iou, image_shape, self.traditional_nms)
+
+            if results[0] is None:
+                return image
+            box_thre, class_thre, class_ids, masks_arg, masks_sigmoid = [x.cpu().numpy() for x in results]
+
+        masks_class     = masks_sigmoid * (class_ids[None, None, :] + 1) 
+        masks_class     = np.reshape(masks_class, [-1, np.shape(masks_sigmoid)[-1]])
+        masks_class     = np.reshape(masks_class[np.arange(np.shape(masks_class)[0]), np.reshape(masks_arg, [-1])], [image_shape[0], image_shape[1]])
+
+        # Prepare the result
+        result = {
+            'boxes': box_thre.tolist(),
+            'classes': class_ids.tolist(),
+            'scores': class_thre.tolist(),
+            'masks': [masks_sigmoid[i] for i in masks_arg]
+        }
+
+        return result
+    
+
+if __name__ == "__main__":
+    yolact = YOLACT()
+    img = Image.open('img/street.jpg')  # replace 'test.jpg' with your image path
+    result = yolact.get_single_image(img)
+    # print(result)
+
+    # Print the results seperately
+    print('Boxes shape:')
+    print(np.array(result['boxes']).shape)
+    print(result['boxes'])
+
+    print('Classes shape:')
+    print(np.array(result['classes']).shape)
+    print(result['classes'])
+
+    print('Scores shape:')
+    print(np.array(result['scores']).shape)
+    print(result['scores'])
+
+
+    print('Masks shape:')
+    print(np.array(result['masks']).shape)
+    

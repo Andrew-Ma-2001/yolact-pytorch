@@ -106,7 +106,10 @@ if __name__ == '__main__':
     Image_dir = config['data']['val_image_path']
     Json_path = config['data']['val_annotation_path']
     map_out_path    = config['saving']['save_dir']
+    save_path = osp.join(map_out_path, 'val_result')
 
+    if not osp.exists(save_path):
+        os.makedirs(save_path)
 
     test_coco       = COCO(Json_path)
     class_names, _  = get_classes(classes_path)
@@ -120,6 +123,23 @@ if __name__ == '__main__':
     if not osp.exists(map_out_path):
         os.makedirs(map_out_path)
         
+
+    if map_mode == 3:
+        ids = ids[:200]
+        print("Initializing YOLACT for detection...")
+        yolact      = YOLACT(confidence = 0.6, nms_iou = 0.6, classes_path = classes_path, model_path = 'new_state_dict.pth')
+        print("YOLACT initialized.")
+        for i, id in enumerate(tqdm(ids)):
+            image_path  = osp.join(Image_dir, test_coco.loadImgs(id)[0]['file_name'])
+            # print(f"Processing image: {image_path}")
+            image       = Image.open(image_path)
+            r_image = yolact.detect_image(image)
+            # print("Image processed.")
+            # Set up an index and save to the mapout path
+            r_image.save(osp.join(save_path, str(i) + '.jpg'))
+
+
+
     if map_mode == 0 or map_mode == 1:
         print("Load model.")
         # yolact      = YOLACT(confidence = 0.05, nms_iou = 0.5)
@@ -131,7 +151,6 @@ if __name__ == '__main__':
         for i, id in enumerate(tqdm(ids)):
             image_path  = osp.join(Image_dir, test_coco.loadImgs(id)[0]['file_name'])
             image       = Image.open(image_path)
-
             box_thre, class_thre, class_ids, masks_arg, masks_sigmoid = yolact.get_map_out(image)
             if box_thre is None:
                 continue

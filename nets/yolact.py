@@ -137,8 +137,14 @@ class Yolact(nn.Module):
                 self.backbone.load_state_dict(torch.load("model_data/resnet50_backbone_weights.pth"))
             else:
                 # Using resnet18
-                self.backbone               = ResNet(layers=[2, 2, 2, 2])
-                self.backbone.load_state_dict(torch.load("model_data/resnet18_backbone_weights.pth"), strict=False)
+                self.backbone               = ResNet(layers=[2, 2, 2, 2]) # block 换一下
+                self.backbone.load_state_dict(torch.load("model_data/resnet18_backbone_weights.pth"), strict=False) # TODO 换一下 block
+        
+        if use_ResNet50:
+            self.backbone               = ResNet(layers=[3, 4, 6, 3])
+        else:
+            # Using resnet18
+            self.backbone               = ResNet(layers=[2, 2, 2, 2])
 
         #----------------------------#
         #   获得的P3为68, 68, 128

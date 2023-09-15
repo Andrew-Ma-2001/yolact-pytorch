@@ -26,7 +26,7 @@ from utils.utils_fit import fit_one_epoch
 import yaml
 import argparse
 
-warnings.filterwarnings("ignore")
+# warnings.filterwarnings("ignore")
 
 if __name__ == "__main__":
     #-------------------------------#
@@ -474,9 +474,9 @@ if __name__ == "__main__":
             val_sampler     = None
             shuffle         = True
             
-        gen             = DataLoader(train_dataset, shuffle = shuffle, batch_size = batch_size, num_workers = num_workers, pin_memory=True,
+        gen             = DataLoader(train_dataset, shuffle = shuffle, batch_size = batch_size, num_workers = num_workers, pin_memory=False,
                                     drop_last=True, collate_fn=dataset_collate, sampler=train_sampler)
-        gen_val         = DataLoader(val_dataset  , shuffle = shuffle, batch_size = batch_size, num_workers = num_workers, pin_memory=True, 
+        gen_val         = DataLoader(val_dataset  , shuffle = shuffle, batch_size = batch_size, num_workers = num_workers, pin_memory=False, 
                                     drop_last=True, collate_fn=dataset_collate, sampler=val_sampler)
     
         #---------------------------------------#
