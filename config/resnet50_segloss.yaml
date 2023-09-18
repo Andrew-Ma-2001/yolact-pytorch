@@ -12,10 +12,10 @@ model:
   pretrained: True
   anchors_size: [24, 48, 96, 192, 384]
 training:
-  Init_Epoch: 91
+  Init_Epoch: 150
   Freeze_Epoch: 50
   Freeze_batch_size: 64
-  UnFreeze_Epoch: 100
+  UnFreeze_Epoch: 200
   Unfreeze_batch_size: 64
   Freeze_Train: False
 optimizer:

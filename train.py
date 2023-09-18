@@ -28,6 +28,14 @@ import argparse
 
 # warnings.filterwarnings("ignore")
 
+# TODO：
+# 1. 训练中间保存几张图片看效果
+# 2. 保存的模型塞到本来的log里面
+# 3. 
+
+
+
+
 if __name__ == "__main__":
     #-------------------------------#
     #   是否使用Cuda

@@ -102,7 +102,7 @@ if __name__ == '__main__':
     #   读取数据集对应的txt
     #---------------------------#
     classes_path = config['general']['classes_path']
-    model_path = config['saving']['save_dir'] + '/best_epoch_weights.pth'
+    model_path = 'logs/resnet50/ep060-loss3.156-val_loss3.209.pth'
     Image_dir = config['data']['val_image_path']
     Json_path = config['data']['val_annotation_path']
     map_out_path    = config['saving']['save_dir']
@@ -127,7 +127,7 @@ if __name__ == '__main__':
     if map_mode == 3:
         ids = ids[:200]
         print("Initializing YOLACT for detection...")
-        yolact      = YOLACT(confidence = 0.6, nms_iou = 0.6, classes_path = classes_path, model_path = 'new_state_dict.pth')
+        yolact      = YOLACT(confidence = 0.6, nms_iou = 0.6, classes_path = classes_path, model_path = model_path)
         print("YOLACT initialized.")
         for i, id in enumerate(tqdm(ids)):
             image_path  = osp.join(Image_dir, test_coco.loadImgs(id)[0]['file_name'])

@@ -19,6 +19,8 @@ from utils.utils import (cvtColor, get_classes, preprocess_input, resize_image,
 from utils.utils_bbox import BBoxUtility
 
 from collections import OrderedDict
+
+
 #--------------------------------------------#
 #   使用自己训练好的模型预测需要修改2个参数
 #   model_path和classes_path都需要修改！
@@ -33,7 +35,7 @@ class YOLACT(object):
         #   验证集损失较低不代表mAP较高，仅代表该权值在验证集上泛化性能较好。
         #   如果出现shape不匹配，同时要注意训练时的model_path和classes_path参数的修改
         #--------------------------------------------------------------------------#
-        "model_path"        : 'new_state_dict.pth',
+        "model_path"        : 'logs/resnet50/best_epoch_weights.pth',
         "classes_path"      : 'model_data/person_classes.txt',
         #---------------------------------------------------------------------#
         #   输入图片的大小
@@ -113,8 +115,10 @@ class YOLACT(object):
         self.bbox_util = BBoxUtility()
         self.generate()
         
-        show_config(**self.__dict__)
+        # show_config(**self.__dict__)
         # TODO Add in a more clear show_config function
+        show_config(model_path=self.model_path, classes_path=self.classes_path, input_shape=self.input_shape, confidence=self.confidence, 
+                    nms_iou=self.nms_iou, anchors_size=self.anchors_size, cuda=self.cuda)
 
     #---------------------------------------------------#
     #   获得所有的分类
@@ -372,18 +376,22 @@ class YOLACT(object):
             box_thre, class_thre, class_ids, masks_arg, masks_sigmoid = [x.cpu().numpy() for x in results]
 
         masks_class     = masks_sigmoid * (class_ids[None, None, :] + 1) 
-        masks_class     = np.reshape(masks_class, [-1, np.shape(masks_sigmoid)[-1]])
-        masks_class     = np.reshape(masks_class[np.arange(np.shape(masks_class)[0]), np.reshape(masks_arg, [-1])], [image_shape[0], image_shape[1]])
-
+        masks_class     = np.transpose(masks_class, (2, 0, 1))
+        # masks_class     = np.reshape(masks_class, [-1, np.shape(masks_sigmoid)[-1]])
+        # masks_class     = np.reshape(masks_class[np.arange(np.shape(masks_class)[0]), np.reshape(masks_arg, [-1])], [image_shape[0], image_shape[1]])
+        # color_masks     = self.colors[masks_class].astype('uint8')
+        # 相当于是二分类，只有0和1
+        
         # Prepare the result
         result = {
             'boxes': box_thre.tolist(),
             'classes': class_ids.tolist(),
             'scores': class_thre.tolist(),
-            'masks': [masks_sigmoid[i] for i in masks_arg]
+            'masks': masks_class.tolist()
         }
-
         return result
+
+
     
 
 if __name__ == "__main__":
@@ -408,4 +416,21 @@ if __name__ == "__main__":
 
     print('Masks shape:')
     print(np.array(result['masks']).shape)
+
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(8, 6))
     
+    plt.imshow(result['masks'])
+    plt.show()
+
+    result['masks'] = np.array(result['masks'])
+    # Permute the mask to [H, W, C]
+    result['masks'] = np.transpose(result['masks'], (2, 0, 1))    
+
+    for item in result['masks']:
+        plt.figure(figsize=(8, 6))
+        plt.imshow(item)
+        plt.show()
+
+    
+    # 现在有一个 mask 【540，540，3】， 我希望对里面的点进行滤波，使得最终出来的mask是平滑的
