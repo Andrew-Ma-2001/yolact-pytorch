@@ -377,6 +377,15 @@ class YOLACT(object):
 
         masks_class     = masks_sigmoid * (class_ids[None, None, :] + 1) 
         masks_class     = np.transpose(masks_class, (2, 0, 1))
+
+        new_mask = np.array(masks_class.shape)
+        for i,mask in enumerate(masks_class):
+            # Do median filter with a large kernel
+            mask = cv2.medianBlur(mask, 5)
+            mask = np.where(mask > 0.7, 1, 0)
+            new_mask[i] = mask
+        
+        masks_class = new_mask
         # masks_class     = np.reshape(masks_class, [-1, np.shape(masks_sigmoid)[-1]])
         # masks_class     = np.reshape(masks_class[np.arange(np.shape(masks_class)[0]), np.reshape(masks_arg, [-1])], [image_shape[0], image_shape[1]])
         # color_masks     = self.colors[masks_class].astype('uint8')
