@@ -125,7 +125,7 @@ class YOLACT(object):
     #---------------------------------------------------#
     def generate(self, onnx=False):
         self.net    = Yolact(self.num_classes, train_mode=False)
-        device      = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device      = torch.device('cuda' if self.cuda else 'cpu')
         self.net.load_state_dict(torch.load(self.model_path, map_location=device))
 
         self.net    = self.net.eval()
@@ -188,7 +188,8 @@ class YOLACT(object):
         thickness   = int(max((image.size[0] + image.size[1]) // np.mean(self.input_shape), 1))
         font        = cv2.FONT_HERSHEY_DUPLEX
         color_masks     = self.colors[masks_class].astype('uint8')
-        image_fused     = cv2.addWeighted(color_masks, 0.4, image_origin, 0.6, gamma=0)
+        # image_fused     = cv2.addWeighted(color_masks, 0.4, image_origin, 0.6, gamma=0)
+        image_fused = image_origin
         for i in range(np.shape(class_ids)[0]):
             left, top, right, bottom = np.array(box_thre[i, :], np.int32)
 
@@ -358,6 +359,8 @@ class YOLACT(object):
         #---------------------------------------------------------#
         image_data      = np.expand_dims(np.transpose(preprocess_input(np.array(image_data, np.float32)), (2, 0, 1)), 0)
 
+
+        box_thre, class_thre, class_ids, masks_class = [], [], [], []
         with torch.no_grad():
             image_data = torch.from_numpy(image_data).type(torch.FloatTensor)
             if self.cuda:
@@ -372,7 +375,14 @@ class YOLACT(object):
             results = self.bbox_util.decode_nms(outputs, self.anchors, self.confidence, self.nms_iou, image_shape, self.traditional_nms)
 
             if results[0] is None:
-                return image
+                result = {
+                    'boxes': [],
+                    'classes': [],
+                    'scores': [],
+                    'masks': []
+                }
+                return result
+
             box_thre, class_thre, class_ids, masks_arg, masks_sigmoid = [x.cpu().numpy() for x in results]
 
         masks_class     = masks_sigmoid * (class_ids[None, None, :] + 1) 
@@ -407,11 +417,13 @@ class YOLACT(object):
     
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
     yolact = YOLACT()
     img = Image.open('img/street.jpg')  # replace 'test.jpg' with your image path
     result = yolact.get_single_image(img)
     # print(result)
-
+    plt.imshow(yolact.detect_image(img))
+    plt.show()
     # Print the results seperately
     print('Boxes shape:')
     print(np.array(result['boxes']).shape)
@@ -429,20 +441,8 @@ if __name__ == "__main__":
     print('Masks shape:')
     print(np.array(result['masks']).shape)
 
-    import matplotlib.pyplot as plt
-    plt.figure(figsize=(8, 6))
-    
-    plt.imshow(result['masks'])
-    plt.show()
-
     result['masks'] = np.array(result['masks'])
     # Permute the mask to [H, W, C]
     result['masks'] = np.transpose(result['masks'], (2, 0, 1))    
-
-    for item in result['masks']:
-        plt.figure(figsize=(8, 6))
-        plt.imshow(item)
-        plt.show()
-
     
     # 现在有一个 mask 【540，540，3】， 我希望对里面的点进行滤波，使得最终出来的mask是平滑的

@@ -310,6 +310,8 @@ if __name__ == "__main__":
     # Output size of P4:  torch.Size([1, 1024, 34, 34])
     # Output size of P5:  torch.Size([1, 2048, 17, 17])
 
+    # TODO FLOPS 指标 
+
     # 现在的问题是怎么把原本的 resnet18 的权重导入
 
 

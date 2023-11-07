@@ -24,7 +24,6 @@ from yolact import YOLACT
 # model = YOLACT(model_path = 'new_state_dict.pth', class_path = 'model_data/person_classes.txt', train_mode=False)
 
 
-# TODO in old version, change to new remember
 
 old_model_path = 'model_data/yolact_weights_coco.pth'
 
