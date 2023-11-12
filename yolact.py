@@ -20,6 +20,9 @@ from utils.utils_bbox import BBoxUtility
 
 from collections import OrderedDict
 
+from skimage.filters import median
+from skimage.color import rgb2gray
+from skimage.morphology import square
 
 #--------------------------------------------#
 #   使用自己训练好的模型预测需要修改2个参数
@@ -181,6 +184,14 @@ class YOLACT(object):
         masks_class     = np.reshape(masks_class, [-1, np.shape(masks_sigmoid)[-1]])
         masks_class     = np.reshape(masks_class[np.arange(np.shape(masks_class)[0]), np.reshape(masks_arg, [-1])], [image_shape[0], image_shape[1]])
         
+
+        # Change mask class to 0-255
+        masks_class = (masks_class * 255).astype(np.uint8)
+        mask = cv2.blur(masks_class, (5,5))
+        mask = np.where(mask > 0.5 * 255, 1, 0)
+
+        masks_class = mask
+
         #---------------------------------------------------------#
         #   设置字体与边框厚度
         #---------------------------------------------------------#
@@ -188,8 +199,8 @@ class YOLACT(object):
         thickness   = int(max((image.size[0] + image.size[1]) // np.mean(self.input_shape), 1))
         font        = cv2.FONT_HERSHEY_DUPLEX
         color_masks     = self.colors[masks_class].astype('uint8')
-        # image_fused     = cv2.addWeighted(color_masks, 0.4, image_origin, 0.6, gamma=0)
-        image_fused = image_origin
+        image_fused     = cv2.addWeighted(color_masks, 0.4, image_origin, 0.6, gamma=0)
+
         for i in range(np.shape(class_ids)[0]):
             left, top, right, bottom = np.array(box_thre[i, :], np.int32)
 

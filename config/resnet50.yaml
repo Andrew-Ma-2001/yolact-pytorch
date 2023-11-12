@@ -33,4 +33,4 @@ data:
   train_image_path: "/home/public/datasets/coco/train2017"
   train_annotation_path: "model_data/instances_train2017_person.json"
   val_image_path: "/home/public/datasets/coco/val2017"
-  val_annotation_path: "model_data/instances_val2017_person.json"
+  val_annotation_path: 'model_data/instances_val2017_person_5_filtered_2.json'

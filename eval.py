@@ -22,47 +22,6 @@ import cv2
 import random
 
 
-class PersonEval(COCOeval):
-    def __init__(self, cocoGt=None, cocoDt=None, iouType='segm'):
-        super().__init__(cocoGt, cocoDt, iouType)
-
-    def enlarge_and_evaluate(self, scale=1.2):
-        """
-        Enlarge the bounding box of the person by a scale around the center point and compare with ground truth if it completely contains the ground truth set acc+1, else set acc+0.
-        """
-        acc = 0
-        total = 0
-        for imgId in self.params.imgIds:
-            p = self.params
-            g = self._gts[imgId, p.catIds[0]]
-            d = self._dts[imgId, p.catIds[0]]
-            for gt, dt in zip(g, d):
-                total += 1
-                gt_box = gt['bbox']
-                dt_box = dt['bbox']
-                dt_box_center = [dt_box[0] + dt_box[2] / 2, dt_box[1] + dt_box[3] / 2]
-                dt_box_enlarged = [dt_box_center[0] - dt_box[2] * scale / 2, dt_box_center[1] - dt_box[3] * scale / 2, dt_box[2] * scale, dt_box[3] * scale]
-                if dt_box_enlarged[0] <= gt_box[0] and dt_box_enlarged[1] <= gt_box[1] and dt_box_enlarged[0] + dt_box_enlarged[2] >= gt_box[0] + gt_box[2] and dt_box_enlarged[1] + dt_box_enlarged[3] >= gt_box[1] + gt_box[3]:
-                    acc += 1
-        return acc / total if total > 0 else 0
-
-    def batch_evaluate(self, dir, total_size=1000):
-        """
-        Evaluate the results by running on total_size of images and save the results to a directory in images and mask drawn with the results.
-        """
-        from PIL import ImageDraw
-        for imgId in self.params.imgIds[:total_size]:
-            img_data = self.cocoGt.loadImgs(imgId)[0]
-            img = Image.open(os.path.join(dir, img_data['file_name']))
-            draw = ImageDraw.Draw(img)
-            for ann in self.cocoGt.loadAnns(self.cocoGt.getAnnIds(imgIds=imgId)):
-                bbox = ann['bbox']
-                draw.rectangle([(bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3])], outline='red')
-            for ann in self.cocoDt.loadAnns(self.cocoDt.getAnnIds(imgIds=imgId)):
-                bbox = ann['bbox']
-                draw.rectangle([(bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3])], outline='blue')
-            img.save(os.path.join(dir, 'results', img_data['file_name']))
-
 
 def cover_iou(box1, box2, scale=1.2):
     """
@@ -110,6 +69,24 @@ def bbox_iou_coco(box1, box2):
     return iou
 
 
+def save_image_with_image_id(image_path, save_path, image_ids):
+    # Check if save_path exists
+    if not osp.exists(save_path):
+        os.makedirs(save_path)
+
+    # Find all the image name under the image_path
+    image_names = os.listdir(image_path)
+    # Filter out files that are not images
+    image_names = [image_name for image_name in image_names if image_name.endswith('.png')]
+
+    for image_id in tqdm(image_ids):
+        # Filter out the image name with the image_id
+        image_name = [image_name for image_name in image_names if str(image_id) in image_name]
+        # Save the images to the save_path
+        for image_name in image_names:
+            image = Image.open(os.path.join(image_path, image_name))
+            image.save(os.path.join(save_path, image_name))
+        
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Evaluation script')
@@ -122,7 +99,9 @@ if __name__ == '__main__':
         config = yaml.safe_load(f)
 
     map_mode = args.map_mode
-    PLOT = True
+
+    PLOT = False
+    PLOT_RESULT = True  
     #------------------------------------------------------------------------------------------------------------------#
     #   map_mode用于指定该文件运行时计算的内容
     #   map_mode为0代表整个map计算流程，包括获得预测结果、计算指标。
@@ -150,14 +129,18 @@ if __name__ == '__main__':
     #   读取数据集对应的txt
     #---------------------------#
     classes_path = config['general']['classes_path']
-    model_path = 'logs/resnet50/best_epoch_weights.pth'
+    model_path = config['saving']['save_dir'] + '/best_epoch_weights.pth'
     Image_dir = config['data']['val_image_path']
-    Json_path = 'model_data/instances_val2017_person_5.json'
+    Json_path = config['data']['val_annotation_path'] 
     map_out_path    = config['saving']['save_dir']
     save_path = osp.join(map_out_path, 'val_result')
+    save_result_path = osp.join(map_out_path, 'all_result')
 
     if not osp.exists(save_path):
         os.makedirs(save_path)
+    
+    if not osp.exists(save_result_path):
+        os.makedirs(save_result_path)
 
     test_coco       = COCO(Json_path)
     class_names, _  = get_classes(classes_path)
@@ -185,7 +168,6 @@ if __name__ == '__main__':
             # print("Image processed.")
             # Set up an index and save to the mapout path
             r_image.save(osp.join(save_path, str(i) + '.jpg'))
-
 
 
     if map_mode == 0 or map_mode == 1:
@@ -235,40 +217,15 @@ if __name__ == '__main__':
     if map_mode == 4:
         yolact = YOLACT(confidence = 0.5, nms_iou = 0.3, classes_path = classes_path, model_path = model_path)
 
+        random.seed(0)
+
         total = 0
         correct = 0
 
-        import os
-
-        # Get all files in the current directory
-        files = os.listdir('/home/mayanze/PycharmProjects/yolact-pytorch-main/logs/resnet50/val_result')
-
-        # Filter out the .png files
-        png_files = [f for f in files if f.endswith('.png')]
-
-        # Remove the .png extension and convert to int
-        image_numbers = [int(f.replace('.png', '')) for f in png_files]
-
-        # Use Random to remove 50% of the image numbers
-        image_numbers = random.sample(image_numbers, int(len(image_numbers) * 0.5))
-
-
-        image_ids = ['8844', '9769', '17379', '35062', '48504', '58393', '59598', '66706', '74733', '76416', '97337', '98716', '110042', '111086',
-             '131556', '153527', '172935', '196442', '236599', '274272', '305309', '306136', '309713', '315492', '336356', '345361',
-             '355817', '359677', '369323', '369541', '381587', '385190', '391722', '395575', '397681', '407943', '423123', '424135',
-             '425221', '437514', '455085', '456303', '458755', '461751', '477805', '480275', '493286', '514586', '530854', '536038',
-             '538236', '541773', '554266', '557672', '568584'
-             ]
         real_image_count = 0
         correct_image = 0
 
         for i, id in enumerate(tqdm(ids)):
-
-            # if str(id) in image_ids:
-            #     continue
-
-            if id in image_numbers:
-                continue
 
             image_path  = osp.join(Image_dir, test_coco.loadImgs(id)[0]['file_name'])
             # Load in the ground true annotations
@@ -294,19 +251,6 @@ if __name__ == '__main__':
 
                 # Skip the bbox if its height is less than 5% of the longest side
                 (x,y,w,h) = bbox
-
-                if h < longest_side * 0.05 or w < longest_side * 0.05:
-                    continue
-                
-                # Skip the bbox if any point of the bbox is in the 5% edge of the image
-                # if x < image.size[0] * 0.05 or y < image.size[1] * 0.05:
-                #     continue
-
-                # if x + w > image.size[0] * 0.95 or y + h > image.size[1] * 0.95:
-                #     continue
-
-                if total_person > 5:
-                    continue
 
                 if result_bbox is None:
                     total += 1
@@ -349,8 +293,16 @@ if __name__ == '__main__':
                     # plt.show()
                     plt.clf()
         
-            if correct_image > 0:
+            if correct_image + wrong_person > 0:
                 real_image_count += 1
+
+            if PLOT_RESULT:
+                detect_img = yolact.detect_image(image)
+                plt.imshow(detect_img)
+                plt.savefig(f"{save_result_path}/{id}.png")
+                # plt.show()
+                plt.clf()
+
 
         print("The result is:")
         print(correct / total)
@@ -360,19 +312,3 @@ if __name__ == '__main__':
 
         print("Total Eval Image")
         print(real_image_count)
-
-        """
-        The results you see are the evaluation metrics for the object detection model you are using, specifically for the "person" class. The metrics are calculated using the COCO evaluation tool. Here's a brief explanation of each metric:
-
-        - Average Precision (AP): This is the average of precisions at different recall values. It's a popular metric in object detection. The AP is calculated at different Intersection over Union (IoU) thresholds, typically from 0.5 to 0.95 (0.5:0.95 in the output). The AP is also calculated for different area sizes of the object, small, medium, and large.
-        
-        - Average Recall (AR): This is the average of maximum recall given some numbers of detections per image, across all categories. Like AP, AR is also calculated for different area sizes of the object.
-        
-        In your output:
-        
-        - The first block of results is for bounding box detection (bbox). The AP for IoU=0.50:0.95 is 0.395, which means the model has 39.5% precision on average across different IoU thresholds from 0.5 to 0.95. The AR for maxDets=100 is 0.476, which means the model has 47.6% recall on average when allowing up to 100 detections per image.
-        
-        - The second block of results is for instance segmentation (segm). The AP for IoU=0.50:0.95 is 0.318, which means the model has 31.8% precision on average for instance segmentation across different IoU thresholds from 0.5 to 0.95. The AR for maxDets=100 is 0.403, which means the model has 40.3% recall on average when allowing up to 100 detections per image.
-        
-        These metrics help you understand how well your model is performing. Higher values for these metrics are better.
-        """

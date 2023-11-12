@@ -26,4 +26,4 @@ def eval_one_image(model_path, class_path, img):
     result = net.get_single_image(img)
 
     # Get the GT from json file
-    
+    pass
