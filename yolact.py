@@ -456,4 +456,3 @@ if __name__ == "__main__":
     # Permute the mask to [H, W, C]
     result['masks'] = np.transpose(result['masks'], (2, 0, 1))    
     
-    # 现在有一个 mask 【540，540，3】， 我希望对里面的点进行滤波，使得最终出来的mask是平滑的

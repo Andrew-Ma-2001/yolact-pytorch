@@ -5,7 +5,7 @@ general:
   sync_bn: True
   fp16: False
   classes_path: 'model_data/person_classes.txt'  # Train only on person
-  model_path: ''
+  model_path: '' # 载不载入断点训练模型
 model:
   use_ResNet50: True # Using Resnet 50
   input_shape: [544, 544]

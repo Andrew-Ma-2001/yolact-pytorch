@@ -100,13 +100,15 @@ if __name__ == '__main__':
 
     map_mode = args.map_mode
 
-    PLOT = False
+    PLOT = True
     PLOT_RESULT = True  
     #------------------------------------------------------------------------------------------------------------------#
     #   map_mode用于指定该文件运行时计算的内容
     #   map_mode为0代表整个map计算流程，包括获得预测结果、计算指标。
     #   map_mode为1代表仅仅获得预测结果。
     #   map_mode为2代表仅仅计算指标。
+    #   map_mode为3代表仅仅获得预测结果
+    #   map_mode为4代表仅仅计算指标一，人像重叠度
     #-------------------------------------------------------------------------------------------------------------------#
     # map_mode        = 2
     #-------------------------------------------------------#
@@ -298,6 +300,11 @@ if __name__ == '__main__':
 
             if PLOT_RESULT:
                 detect_img = yolact.detect_image(image)
+
+                for annotation in gt_annotation:
+                        bbox = annotation['bbox']
+                        plt.gca().add_patch(plt.Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3], fill=False, edgecolor='b', linewidth=1))
+
                 plt.imshow(detect_img)
                 plt.savefig(f"{save_result_path}/{id}.png")
                 # plt.show()

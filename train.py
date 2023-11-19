@@ -49,7 +49,7 @@ if __name__ == "__main__":
     #       在终端中输入    CUDA_VISIBLE_DEVICES=0,1 python train.py
     #   DDP模式：
     #       设置            distributed = True
-    #       在终端中输入    CUDA_VISIBLE_DEVICES=0,2 python -m torch.distributed.launch --nproc_per_node=2 train.py
+    #       在终端中输入    CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --nproc_per_node=2 --config config/resnet34.yaml train.py
     #---------------------------------------------------------------------#
     # distributed     = True
     #---------------------------------------------------------------------#
@@ -226,7 +226,7 @@ if __name__ == "__main__":
 
     # Load in the config file
     args = argparse.ArgumentParser(description='Yolact Training Script')
-    args.add_argument('--config', default='config/resnet18.yaml', type=str, help='The config file.')
+    args.add_argument('--config', default='config/resnet34.yaml', type=str, help='The config file.')
     args.add_argument('--local-rank', default=0, type=int, help='Local rank for distributed training')
     args = args.parse_args()
 

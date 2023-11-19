@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from nets.resnet import ResNet
-# from resnet import ResNet
+# from nets.resnet import ResNet, BasicBlock, ResNetVerSmall
+from resnet import ResNet, BasicBlock, ResNetVerSmall
 
 
 # 几个事情
@@ -136,15 +136,15 @@ class Yolact(nn.Module):
                 self.backbone               = ResNet(layers=[3, 4, 6, 3])
                 self.backbone.load_state_dict(torch.load("model_data/resnet50_backbone_weights.pth"))
             else:
-                # Using resnet18
-                self.backbone               = ResNet(layers=[2, 2, 2, 2]) # block 换一下
-                self.backbone.load_state_dict(torch.load("model_data/resnet18_backbone_weights.pth"), strict=False) # TODO 换一下 block
+                # Using resnet34
+                self.backbone               = ResNetVerSmall(BasicBlock ,layers=[3, 4, 6, 3]) # block 换一下
+                self.backbone.load_state_dict(torch.load("model_data/resnet34_backbone_weights.pth"), strict=False) # TODO 换一下 block
         
         if use_ResNet50:
             self.backbone               = ResNet(layers=[3, 4, 6, 3])
         else:
-            # Using resnet18
-            self.backbone               = ResNet(layers=[2, 2, 2, 2])
+            # Using resnet34
+            self.backbone               = ResNetVerSmall(BasicBlock ,layers=[3, 4, 6, 3])
 
         #----------------------------#
         #   获得的P3为68, 68, 128
@@ -153,8 +153,10 @@ class Yolact(nn.Module):
         #   获得的P6为9, 9, 128
         #   获得的P7为5, 5, 128
         #----------------------------#
-        self.fpn                    = FPN([512, 1024, 2048])
-        
+        if use_ResNet50:
+            self.fpn                    = FPN([512, 1024, 2048])
+        else:
+            self.fpn                    = FPN([64, 128, 256])    
         #--------------------------------#
         #   对P3进行上采样
         #   128, 68, 68 -> 32, 136, 136
@@ -297,21 +299,42 @@ def test_input_output():
 
 
 if __name__ == "__main__":
-    # 现在写 resnet18 的部分
-    model = ResNet([2,2,2,2])
-    # Print Output Size if image size is 544,544,3
-    input = torch.randn(1, 3, 544, 544)
-    [P3, P4, P5] = model(input)
-    print("Output size of P3: ", P3.size())
-    print("Output size of P4: ", P4.size())
-    print("Output size of P5: ", P5.size())
-    
-    # Output size of P3:  torch.Size([1, 512, 68, 68])
-    # Output size of P4:  torch.Size([1, 1024, 34, 34])
-    # Output size of P5:  torch.Size([1, 2048, 17, 17])
+    # 现在写 resnet34 和 18 的网络结构
+    # Output size of P3:  torch.Size([1, 128, 68, 68])
+    # Output size of P4:  torch.Size([1, 256, 34, 34])
+    # Output size of P5:  torch.Size([1, 512, 17, 17])
 
     # TODO FLOPS 指标 
 
-    # 现在的问题是怎么把原本的 resnet18 的权重导入
+    # 构建一个 numpy 数组，测试一下 [C3, C4, C5] 的输入， 假如 batch_size = 2
+    import numpy as np
+    C3 = np.random.randint(0, 255, (2, 128, 68, 68)).astype(np.uint8)
+    C4 = np.random.randint(0, 255, (2, 256, 34, 34)).astype(np.uint8)
+    C5 = np.random.randint(0, 255, (2, 512, 17, 17)).astype(np.uint8)
+
+    C3 = torch.from_numpy(C3).float()
+    C4 = torch.from_numpy(C4).float()
+    C5 = torch.from_numpy(C5).float()
+
+    # FPN 的构建就为 [128, 256, 512]
+
+    model = FPN([128, 256, 512])
+    P3, P4, P5, P6, P7 = model([C3, C4, C5])
+
+    P3, P4, P5, P6, P7 = model([C3, C4, C5])
+
+    # 打印出来看看
+    print(P3.shape, "P3")
+    print(P4.shape, "P4")
+    print(P5.shape, "P5")
+    print(P6.shape, "P6")
+    print(P7.shape, "P7")
+
+    # 修改通道数之后，输出为
+    # (n, 128, 68, 68) P3
+    # (n, 128, 34, 34) P4
+    # (n, 128, 17, 17) P5
+    # (n, 128, 9, 9)   P6
+    # (n, 128, 5, 5)   P7
 
 

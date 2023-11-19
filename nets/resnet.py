@@ -2,6 +2,98 @@ import torch
 import torch.nn as nn
 
 
+class BasicBlock(nn.Module):
+    expansion = 4
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None):
+        super().__init__()
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=3, stride=stride,
+                     padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1,
+                     padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(planes)
+        self.downsample = downsample
+        self.stride = stride
+
+    def forward(self, x):
+        identity = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out += identity
+        out = self.relu(out)
+
+        return out
+    
+class ResNetVerSmall(nn.Module):
+
+    def __init__(self, block, layers, num_classes=1000):
+        super().__init__()
+        
+        self.inplanes = 64
+
+        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
+                               bias=False)
+        self.bn1 = nn.BatchNorm2d(self.inplanes)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        
+        self.layer1 = self._make_layer(block, 64, layers[0])
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+        
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(512 , num_classes)
+
+
+    def _make_layer(self, block, planes, blocks, stride=1):
+        downsample = None  
+   
+        if stride != 1 or self.inplanes != planes:
+            downsample = nn.Sequential(
+                nn.Conv2d(self.inplanes, planes, 1, stride, bias=False),
+                nn.BatchNorm2d(planes),
+            )
+
+        layers = []
+        layers.append(block(self.inplanes, planes, stride, downsample))
+        
+        self.inplanes = planes
+        
+        for _ in range(1, blocks):
+            layers.append(block(self.inplanes, planes))
+
+        return nn.Sequential(*layers)
+    
+    
+    def forward(self, x):
+        out = []
+        x = self.conv1(x)           # 224x224
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)         # 112x112
+
+        x = self.layer1(x)          # 56x56
+        x = self.layer2(x)          # 28x28
+        out.append(x)
+        x = self.layer3(x)
+        out.append(x)          # 14x14
+        x = self.layer4(x)
+        out.append(x)          # 7x7
+
+        return out
+
 class Bottleneck(nn.Module):
     expansion = 4
     def __init__(self, inplanes, planes, stride=1, downsample=None, norm_layer=nn.BatchNorm2d):
@@ -105,19 +197,20 @@ class ResNet(nn.Module):
 if __name__ == "__main__":
     import numpy as np
     # Instantiate the ResNet with 4 layers each having 2 blocks
-    model = ResNet([2, 2, 2, 2])
+    model = ResNetVerSmall(BasicBlock,[3, 4, 6, 3])
+    # model = ResNet([3, 4, 6, 3])
     
-    # Load the pre-trained weights from torch resnet18
-    pretrained_weights = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=True).state_dict()
+    # # Load the pre-trained weights from torch resnet18
+    pretrained_weights = torch.hub.load('pytorch/vision:v0.10.0', 'resnet34', pretrained=True).state_dict()
     
-    # Prepare the state_dict to load into our model
-    state_dict = {}
-    for k, v in pretrained_weights.items():
-        if 'fc' not in k:  # Exclude the fully connected layer
-            state_dict[k] = v
+    # # Prepare the state_dict to load into our model
+    # state_dict = {}
+    # for k, v in pretrained_weights.items():
+    #     if 'fc' not in k:  # Exclude the fully connected layer
+    #         state_dict[k] = v
     
-    # Load the weights into our model
-    model.load_state_dict(state_dict, strict=False)
+    # # Load the weights into our model
+    # model.load_state_dict(state_dict, strict=False)
     
     # Save the two model state dict size and name to two txt files
     # with open('model_state_dict.txt', 'w') as f:
@@ -143,5 +236,5 @@ if __name__ == "__main__":
     for item in output:
         print(item.shape)
 
-    # Save the model name as : model_data/resnet18_backbone_weights.pth
-    torch.save(model.state_dict(), 'model_data/resnet18_backbone_weights.pth')
+    # Save the model
+    torch.save(model.state_dict(), 'model_data/resnet34_backbone_weights.pth')
