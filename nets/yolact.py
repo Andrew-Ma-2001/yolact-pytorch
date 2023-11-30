@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# from nets.resnet import ResNet, BasicBlock, ResNetVerSmall
-from resnet import ResNet, BasicBlock, ResNetVerSmall
+from nets.resnet import ResNet, BasicBlock, ResNetVerSmall
+
 
 
 # 几个事情
@@ -76,6 +76,7 @@ class ProtoNet(nn.Module):
         self.proto1 = nn.Sequential(
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
+            # TODO 记得改回来
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
@@ -123,7 +124,7 @@ class PredictionModule(nn.Module):
         return box, conf, coef
 
 class Yolact(nn.Module):
-    def __init__(self, num_classes, coef_dim=32, pretrained=False, train_mode=True, use_ResNet50=True):
+    def __init__(self, num_classes, coef_dim=32, pretrained=False, train_mode=True, use_ResNet50=False):
         super().__init__()
         #----------------------------#
         #   获得的C3为68, 68, 512
@@ -137,11 +138,12 @@ class Yolact(nn.Module):
                 self.backbone.load_state_dict(torch.load("model_data/resnet50_backbone_weights.pth"))
             else:
                 # Using resnet34
-                self.backbone               = ResNetVerSmall(BasicBlock ,layers=[3, 4, 6, 3]) # block 换一下
-                self.backbone.load_state_dict(torch.load("model_data/resnet34_backbone_weights.pth"), strict=False) # TODO 换一下 block
+                self.backbone               = ResNetVerSmall(BasicBlock ,layers=[3, 4, 6, 3]) 
+                self.backbone.load_state_dict(torch.load("model_data/resnet34_backbone_weights.pth")) 
         
         if use_ResNet50:
             self.backbone               = ResNet(layers=[3, 4, 6, 3])
+            print("Using ResNet50 as backbone")
         else:
             # Using resnet34
             self.backbone               = ResNetVerSmall(BasicBlock ,layers=[3, 4, 6, 3])
@@ -156,7 +158,7 @@ class Yolact(nn.Module):
         if use_ResNet50:
             self.fpn                    = FPN([512, 1024, 2048])
         else:
-            self.fpn                    = FPN([64, 128, 256])    
+            self.fpn                    = FPN([128, 256, 512])    
         #--------------------------------#
         #   对P3进行上采样
         #   128, 68, 68 -> 32, 136, 136
@@ -304,37 +306,30 @@ if __name__ == "__main__":
     # Output size of P4:  torch.Size([1, 256, 34, 34])
     # Output size of P5:  torch.Size([1, 512, 17, 17])
 
-    # TODO FLOPS 指标 
 
-    # 构建一个 numpy 数组，测试一下 [C3, C4, C5] 的输入， 假如 batch_size = 2
-    import numpy as np
-    C3 = np.random.randint(0, 255, (2, 128, 68, 68)).astype(np.uint8)
-    C4 = np.random.randint(0, 255, (2, 256, 34, 34)).astype(np.uint8)
-    C5 = np.random.randint(0, 255, (2, 512, 17, 17)).astype(np.uint8)
+    # model = Yolact(num_classes=81, pretrained=True, use_ResNet50=False)
+    # image = torch.randn(1, 3, 544, 544)
 
-    C3 = torch.from_numpy(C3).float()
-    C4 = torch.from_numpy(C4).float()
-    C5 = torch.from_numpy(C5).float()
+    # output = model(image)
 
-    # FPN 的构建就为 [128, 256, 512]
+    # # Print the paramter size and model size and FLOPS
+    # from thop import profile
+    # flops, params = profile(model, inputs=(image, ))
+    # print(f"FLOPs: {flops}, Params: {params}")
+    # print(output[0].shape, "pred_box")
 
-    model = FPN([128, 256, 512])
-    P3, P4, P5, P6, P7 = model([C3, C4, C5])
+    # Instantiate the Yolact model
+    model = Yolact(num_classes=2, coef_dim=32, pretrained=False, train_mode=True, use_ResNet50=True)
 
-    P3, P4, P5, P6, P7 = model([C3, C4, C5])
+    # model.load_state_dict(torch.load('logs/resnet50/best_epoch_weights.pth'))
 
-    # 打印出来看看
-    print(P3.shape, "P3")
-    print(P4.shape, "P4")
-    print(P5.shape, "P5")
-    print(P6.shape, "P6")
-    print(P7.shape, "P7")
+    # Use torch summary to print the model summary
+    from torchsummary import summary
+    summary(model, (3, 544, 544), device='cpu')
 
-    # 修改通道数之后，输出为
-    # (n, 128, 68, 68) P3
-    # (n, 128, 34, 34) P4
-    # (n, 128, 17, 17) P5
-    # (n, 128, 9, 9)   P6
-    # (n, 128, 5, 5)   P7
-
+    # Print the FLOPS
+    from thop import profile
+    image = torch.randn(1, 3, 544, 544)
+    flops, params = profile(model, inputs=(image, ))
+    print(f"FLOPs: {flops / 1e9} GFLOPs, Params: {params / 1e6} MB")
 

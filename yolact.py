@@ -8,7 +8,6 @@ import torch
 import torch.nn as nn
 from PIL import Image
 
-# from nets.old_yolact import Yolact
 
 from nets.yolact import Yolact
 
@@ -118,8 +117,6 @@ class YOLACT(object):
         self.bbox_util = BBoxUtility()
         self.generate()
         
-        # show_config(**self.__dict__)
-        # TODO Add in a more clear show_config function
         show_config(model_path=self.model_path, classes_path=self.classes_path, input_shape=self.input_shape, confidence=self.confidence, 
                     nms_iou=self.nms_iou, anchors_size=self.anchors_size, cuda=self.cuda)
 
@@ -127,7 +124,7 @@ class YOLACT(object):
     #   获得所有的分类
     #---------------------------------------------------#
     def generate(self, onnx=False):
-        self.net    = Yolact(self.num_classes, train_mode=False)
+        self.net    = Yolact(self.num_classes, train_mode=False, use_ResNet50=True)
         device      = torch.device('cuda' if self.cuda else 'cpu')
         self.net.load_state_dict(torch.load(self.model_path, map_location=device))
 

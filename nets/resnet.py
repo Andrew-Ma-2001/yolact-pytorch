@@ -237,4 +237,4 @@ if __name__ == "__main__":
         print(item.shape)
 
     # Save the model
-    torch.save(model.state_dict(), 'model_data/resnet34_backbone_weights.pth')
+    # torch.save(model.state_dict(), 'model_data/resnet34_backbone_weights.pth')

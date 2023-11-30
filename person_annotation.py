@@ -1,6 +1,8 @@
 import json
 import numpy as np
 import random
+from tqdm import tqdm
+
 
 train_image_path        = "/home/public/datasets/coco/train2017"
 train_annotation_path   = "/home/public/datasets/coco/annotations/instances_train2017.json"
@@ -53,15 +55,6 @@ def filter_annotations(annotation_path, output_path):
 
 def filter_val_images(annotation_path, output_path):
     # Filter the unwanted images
-    import os
-    # Get all files in the current directory
-    files = os.listdir('/home/mayanze/PycharmProjects/yolact-pytorch-main/logs/resnet50/val_result')
-    # Filter out the .png files
-    png_files = [f for f in files if f.endswith('.png')]
-    # Remove the .png extension and convert to int
-    image_numbers = [int(f.replace('.png', '')) for f in png_files]
-    # Use Random to remove 50% of the image numbers
-    image_numbers = random.sample(image_numbers, int(len(image_numbers) * 0.75))
     # Read the coco annotations, here it should be all having one class person
     # Then for every image read the bboxs 
     # Filter out the image annotations if containing more than five persons i.e. meaning that images annotations which have more than 5 should be filtered out
@@ -77,7 +70,7 @@ def filter_val_images(annotation_path, output_path):
     unique_image_ids = list(set(image_ids))
 
     filtered_annotations = []
-    for image_id in unique_image_ids:
+    for image_id in tqdm(unique_image_ids):
         image_annotations = [annotation for annotation in data['annotations'] if annotation['image_id'] == image_id]
         
         if len(image_annotations) > 5:
@@ -116,28 +109,6 @@ def filter_val_images(annotation_path, output_path):
 
     with open(output_path, 'w') as f:
         json.dump(data, f)
-
-
-def filter_val_image_with_imageids(annotation_path, output_path, image_ids):
-    import json
-    with open(annotation_path, 'r') as f:
-        data = json.load(f)
-
-    # Filter the annotations with the image ids
-    # Use try except to handle the case where the image id is not in the annotations
-    for image_id in image_ids:
-        try:
-            data['annotations'] = [annotation for annotation in data['annotations'] if annotation['image_id'] != image_id]
-        except:
-            print("Image ID {} not in the annotations".format(image_id))
-            continue
-
-    unique_image_ids = list(set([annotation['image_id'] for annotation in data['annotations']]))
-    print("Total Images in the filtered dataset: {}".format(len(unique_image_ids)))
-
-    with open(output_path, 'w') as f:
-        json.dump(data, f)
-
 
 
 def show_bbox_data_distribution(annotation_path, save_path):
@@ -241,27 +212,19 @@ def filter_out_annnotation_with_image_numbers(annotation_path, save_path, image_
 
 
 
+# 人工挑选出不要的图片 id
 image_ids = ['8844', '9769', '17379', '35062', '48504', '58393', '59598', '66706', '74733', '76416', '97337', '98716', '110042', '111086',
              '131556', '153527', '172935', '196442', '236599', '274272', '305309', '306136', '309713', '315492', '336356', '345361',
              '355817', '359677', '369323', '369541', '381587', '385190', '391722', '395575', '397681', '407943', '423123', '424135',
              '425221', '437514', '455085', '456303', '458755', '461751', '477805', '480275', '493286', '514586', '530854', '536038',
              '538236', '541773', '554266', '557672', '568584'
              ]
-# Filter the training and validation datasets
-# filter_annotations(train_annotation_path, 'model_data/instances_train2017_person.json')
-# filter_annotations(val_annotation_path, 'model_data/instances_val2017_person.json')
 
+# Filter the training and validation datasets
+filter_annotations(train_annotation_path, 'model_data/instances_train2017_person.json')
+filter_annotations(val_annotation_path, 'model_data/instances_val2017_person.json')
+
+filter_val_images('model_data/instances_train2017_person.json', 'model_data/instances_train2017_person_5_filtered.json')
 filter_val_images('model_data/instances_val2017_person.json', 'model_data/instances_val2017_person_5_filtered.json')
 
 filter_out_annnotation_with_image_numbers('model_data/instances_val2017_person_5_filtered.json', 'model_data/instances_val2017_person_5_filtered_2.json', 'model_data/image_numbers.txt')
-# show_bbox_data_distribution('model_data/instances_val2017_person_5.json', 'model_data')
-
-
-# show_bbox_data_distribution('model_data/instances_val2017_person.json', 'model_data')
-# show_bbox_data_distribution('model_data/instances_val2017_person_5.json', 'model_data')
-# show_bbox_data_distribution(train_annotation_path, 'model_data')
-# show_bbox_data_distribution(val_annotation_path, 'model_data')
-
-# filter_val_image_with_imageids('model_data/instances_val2017_person_5.json', 'model_data/instances_val2017_person_5_image_id_filter.json', image_ids)
-# filter_val_image_with_imageids('model_data/instances_val2017_person.json', 'model_data/instances_val2017_person_image_id_filter.json', image_ids)
-# filter_val_image_with_imageids(val_annotation_path, 'model_data/instances_val2017_image_id_filter.json', image_ids)

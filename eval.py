@@ -100,8 +100,8 @@ if __name__ == '__main__':
 
     map_mode = args.map_mode
 
-    PLOT = True
-    PLOT_RESULT = True  
+    PLOT = False
+    PLOT_RESULT = False  
     #------------------------------------------------------------------------------------------------------------------#
     #   map_mode用于指定该文件运行时计算的内容
     #   map_mode为0代表整个map计算流程，包括获得预测结果、计算指标。
@@ -140,9 +140,20 @@ if __name__ == '__main__':
 
     if not osp.exists(save_path):
         os.makedirs(save_path)
+        # Check if any image is in the save_path, remove them if there are any
+        image_ids = os.listdir(save_path)
+        image_ids = [int(image_id.split('.')[0]) for image_id in image_ids]
+        for image_id in image_ids:
+            os.remove(osp.join(save_path, str(image_id) + '.png'))
+
     
     if not osp.exists(save_result_path):
         os.makedirs(save_result_path)
+        # Check if any image is in the save_path, remove them if there are any
+        image_ids = os.listdir(save_path)
+        image_ids = [int(image_id.split('.')[0]) for image_id in image_ids]
+        for image_id in image_ids:
+            os.remove(osp.join(save_path, str(image_id) + '.png'))
 
     test_coco       = COCO(Json_path)
     class_names, _  = get_classes(classes_path)
@@ -217,8 +228,50 @@ if __name__ == '__main__':
 
 
     if map_mode == 4:
-        yolact = YOLACT(confidence = 0.5, nms_iou = 0.3, classes_path = classes_path, model_path = model_path)
+        print("Load model.")
+        # yolact      = YOLACT(confidence = 0.05, nms_iou = 0.5)
+        yolact      = YOLACT(confidence = 0.05, nms_iou = 0.5, classes_path = classes_path, model_path = model_path)
+        print("Load model done.")
+        
+        print("Get predict result.")
+        make_json   = Make_json(map_out_path, COCO_LABEL_MAP)
+        for i, id in enumerate(tqdm(ids)):
+            image_path  = osp.join(Image_dir, test_coco.loadImgs(id)[0]['file_name'])
+            image       = Image.open(image_path)
+            box_thre, class_thre, class_ids, masks_arg, masks_sigmoid = yolact.get_map_out(image)
+            if box_thre is None:
+                continue
+            prep_metrics(box_thre, class_thre, class_ids, masks_sigmoid, id, make_json)
+        make_json.dump()
 
+        bbox_dets = test_coco.loadRes(osp.join(map_out_path, "bbox_detections.json"))
+        mask_dets = test_coco.loadRes(osp.join(map_out_path, "mask_detections.json"))
+
+        print('\nEvaluating BBoxes:')
+        # NOTE: pass catIds parameter here if you want to limit the evaluation to a specific category.
+        # bbox_eval = COCOeval(test_coco, bbox_dets, 'bbox')
+        print('Tesing Object: Person')
+        bbox_eval = COCOeval(test_coco, bbox_dets, 'bbox')
+        bbox_eval.params.catIds = [1]
+        bbox_eval.evaluate()
+        bbox_eval.accumulate()
+        bbox_eval.summarize()
+        # person_eval = PersonEval(test_coco, bbox_dets, 'bbox')
+        # person_eval.params.catIds = [1]
+        # print(person_eval.enlarge_and_evaluate())
+
+        print('\nEvaluating Masks:')
+        # bbox_eval = COCOeval(test_coco, mask_dets, 'segm')
+        mask_eval = COCOeval(test_coco, mask_dets, 'segm')
+        mask_eval.params.catIds = [1]
+        mask_eval.evaluate()
+        mask_eval.accumulate()
+        mask_eval.summarize()
+        print(f'\nJson files dumped, saved in: \'eval_results/\', start evaluting.')
+
+
+        print(f"\nCalculating the person overlap ratio...")
+        yolact = YOLACT(confidence = 0.5, nms_iou = 0.3, classes_path = classes_path, model_path = model_path)
         random.seed(0)
 
         total = 0
